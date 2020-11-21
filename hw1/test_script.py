@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.io
 import time
+import cv2
+import numpy as np
 
 from ex1_functions import *
 
@@ -31,17 +33,53 @@ img_src = mpimg.imread('src.jpg')
 img_dst = mpimg.imread('dst.jpg')
 matching = scipy.io.loadmat('matches')  # matching points and some outliers
 perfect_matching = scipy.io.loadmat('matches_perfect')  # loading perfect matches
+match_p_src, match_p_dst=perfect_matching['match_p_src'],perfect_matching['match_p_dst']
 
+#####################
+#### The problem ####
+#####################
 
 # Display the matching points on both images and check if they are indeed a perfect match
 display_matching(src_image=img_src, dest_image=img_dst, perfect_matching=create_matching_dict(perfect_matching),
                  matching=create_matching_dict(matching))
 
+
+########################################
+#### Part A: Homography computation ####
+########################################
+
 # Compute naive homography
 tt = time.time()
 H_naive = compute_homography_naive(match_p_src, match_p_dst)
-print('Naive Homography {:5.4f} sec'.format(toc(tt)))
+print('Naive Homography - matching perfect {:5.4f} sec'.format(toc(tt)))
 print(H_naive)
+
+
+#Forward Mapping
+dsize=img_dst.shape[:-1]
+src_forward_mapping = cv2.warpPerspective(img_src, H_naive, dsize)
+cv2.imshow("Source Image - matches_perfect ", src_forward_mapping)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+#Repeat for matching
+match_p_src, match_p_dst=matching['match_p_src'],matching['match_p_dst']
+tt = time.time()
+H_naive = compute_homography_naive(match_p_src, match_p_dst)
+print('Naive Homography - matching {:5.4f} sec'.format(toc(tt)))
+print(H_naive)
+
+dsize=img_dst.shape[:-1]
+src_forward_mapping = cv2.warpPerspective(img_src, H_naive, dsize)
+cv2.imshow("Source Image - matching ", src_forward_mapping)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+
+#########################################
+##### Part B: Dealing with outliers #####
+#########################################
+
 
 # Test naive homography
 tt = time.time()
