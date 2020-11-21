@@ -58,22 +58,22 @@ print(H_naive)
 #Forward Mapping
 dsize=img_dst.shape[:-1]
 src_forward_mapping = cv2.warpPerspective(img_src, H_naive, dsize)
-cv2.imshow("Source Image - matches_perfect ", src_forward_mapping)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# cv2.imshow("Source Image - matches_perfect ", src_forward_mapping)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
 #Repeat for matching
-match_p_src, match_p_dst=matching['match_p_src'],matching['match_p_dst']
-tt = time.time()
-H_naive = compute_homography_naive(match_p_src, match_p_dst)
-print('Naive Homography - matching {:5.4f} sec'.format(toc(tt)))
-print(H_naive)
-
-dsize=img_dst.shape[:-1]
-src_forward_mapping = cv2.warpPerspective(img_src, H_naive, dsize)
-cv2.imshow("Source Image - matching ", src_forward_mapping)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# match_p_src, match_p_dst=matching['match_p_src'],matching['match_p_dst']
+# tt = time.time()
+# H_naive = compute_homography_naive(match_p_src, match_p_dst)
+# print('Naive Homography - matching {:5.4f} sec'.format(toc(tt)))
+# print(H_naive)
+#
+# dsize=img_dst.shape[:-1]
+# src_forward_mapping = cv2.warpPerspective(img_src, H_naive, dsize)
+# cv2.imshow("Source Image - matching ", src_forward_mapping)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
 
 #########################################
@@ -98,6 +98,10 @@ tt = tic()
 fit_percent, dist_mse = test_homography(H_ransac, match_p_src, match_p_dst, max_err)
 print('RANSAC Homography Test {:5.4f} sec'.format(toc(tt)))
 print([fit_percent, dist_mse])
+
+#########################################
+####### Part C: Panorama creation #######
+#########################################
 
 # Build panorama
 tt = tic()

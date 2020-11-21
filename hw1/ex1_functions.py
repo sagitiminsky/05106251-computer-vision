@@ -49,10 +49,9 @@ def display_matching(src_image, dest_image, perfect_matching, matching):
 
     plt.show()
 
-
-def compute_homography_naive(points1, points2):
-    points1=points1.T
-    points2=points2.T
+def add_ones(points1,points2):
+    points1 = points1.T
+    points2 = points2.T
     if points1.shape[0] != points2.shape[0]: raise ValueError("The number of input and output points mismatches")
     if points1.shape[1] == 2:
         p1 = np.ones((len(points1), 3), 'float64')
@@ -71,6 +70,13 @@ def compute_homography_naive(points1, points2):
         raise ValueError("Bad shape for output points")
 
     npoints = len(points1)
+    return p1,p2,npoints
+
+def compute_homography_naive(points1, points2):
+
+    p1,p2,npoints=add_ones(points1,points2)
+
+
 
     A = np.zeros((3 * npoints, 9), 'float64')
 
@@ -97,7 +103,28 @@ def compute_homography_naive(points1, points2):
 
 
 def test_homography(H, mp_src, mp_dst, max_err):
-    for i
+    p1, p2,npoints = add_ones(mp_src, mp_dst)
+    ninliers,noutliers,squared_error=0,0,0
+
+    for src_p,dest_p in zip(p1,p2):
+        p_squared_error=sum(((H @ src_p) - dest_p) ** 2) ** 0.5
+        if p_squared_error<=max_err:
+           squared_error+=p_squared_error
+           ninliers+=1
+        else:
+            noutliers+=1
+
+
+    if ninliers+noutliers!=npoints:
+        raise ValueError("ninliers+noutliers!=npoints")
+
+    if ninliers==0:
+        raise ValueError("number of inliers is zero")
+
+
+    fit_percent= ninliers/npoints
+    dist_mse=squared_error/ninliers
+    return fit_percent,dist_mse
 
 
 
