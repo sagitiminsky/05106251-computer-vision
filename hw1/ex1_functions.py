@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.linalg import svd,lstsq
+from scipy.linalg import svd, lstsq
 import random
+import cv2
+
+
 ########################################
 #### Part A: Homography computation ####
 ########################################
@@ -54,12 +57,28 @@ def display_matching(src_image, dest_image, perfect_matching, matching):
 
     plt.show()
 
+def display_matching_test(src_image,dest_image,matching):
+    plt.close('all')
+    f, axarr = plt.subplots(1, 2)
+
+    # src
+    axarr[0].set_title('matching src')
+    axarr[0].imshow(src_image)
+    axarr[0].scatter(x=matching['src'][0], y=matching['src'][1], c='g', s=16)
+
+    # dest
+    axarr[1].imshow(dest_image)
+    axarr[1].set_title('matching dst')
+    axarr[1].scatter(x=matching['dest'][0], y=matching['dest'][1], c='r', s=16)
+
+    plt.show()
+
 
 #########################################
 ##### Part B: Dealing with outliers #####
 #########################################
 
-def add_ones(points1,points2):
+def add_ones(points1, points2):
     points1 = points1.T
     points2 = points2.T
     if points1.shape[0] != points2.shape[0]: raise ValueError("The number of input and output points mismatches")
@@ -80,11 +99,11 @@ def add_ones(points1,points2):
         raise ValueError("Bad shape for output points")
 
     npoints = len(points1)
-    return p1,p2,npoints
+    return p1, p2, npoints
+
 
 def compute_homography_naive(points1, points2):
-
-    p1,p2,npoints=add_ones(points1,points2)
+    p1, p2, npoints = add_ones(points1, points2)
 
     A = np.zeros((3 * npoints, 9), 'float64')
 
@@ -108,72 +127,91 @@ def compute_homography_naive(points1, points2):
     H = h.reshape(3, 3)
     return H
 
+
 def p_transformed_cartesian(vec):
-    tx=vec[0]
-    ty=vec[1]
-    tz=vec[2]
+    tx = vec[0]
+    ty = vec[1]
+    tz = vec[2]
 
     px = tx / tz
     py = ty / tz
     Z = 1 / tz
 
-    return np.array([px,py,Z])
+    return np.array([px, py, Z])
+
 
 def test_homography(H, mp_src, mp_dst, max_err):
-    p1, p2,npoints = add_ones(mp_src, mp_dst)
-    ninliers,noutliers,squared_error=0,0,0
+    p1, p2, npoints = add_ones(mp_src, mp_dst)
+    ninliers, noutliers, squared_error = 0, 0, 0
 
-    for src_p,dest_p in zip(p1,p2):
-        p_squared_error=sum((p_transformed_cartesian(H @ src_p)[:2] - dest_p[:2]) ** 2) ** 0.5
-        if p_squared_error<=max_err:
-           squared_error+=p_squared_error
-           ninliers+=1
+    for src_p, dest_p in zip(p1, p2):
+        p_squared_error = sum((p_transformed_cartesian(H @ src_p)[:2] - dest_p[:2]) ** 2) ** 0.5
+        if p_squared_error <= max_err:
+            squared_error += p_squared_error
+            ninliers += 1
         else:
-            noutliers+=1
+            noutliers += 1
 
-
-    if ninliers+noutliers!=npoints:
+    if ninliers + noutliers != npoints:
         raise ValueError("ninliers+noutliers!=npoints")
 
-    if ninliers==0:
+    if ninliers == 0:
         print("number of outliers:{}".format(noutliers))
         raise ValueError("number of inliers is zero")
 
-
-    fit_percent= ninliers/npoints
-    dist_mse=squared_error/ninliers
-    return fit_percent,dist_mse
+    fit_percent = ninliers / npoints
+    dist_mse = squared_error / ninliers
+    return fit_percent, dist_mse
 
 
 def compute_homography(match_p_src, match_p_dst, inliers_percent, max_err):
-    final_H=None
-    final_fit_percent,final_dist_mse=0.0,None
+    final_H = None
+    final_fit_percent, final_dist_mse = 0.0, None
     for i in range(1000):
-        #find 4 random points
-        random_four=random.sample(range(len(match_p_src.T)), 4)
+        # find 4 random points
+        random_four = random.sample(range(len(match_p_src.T)), 4)
 
-        H=compute_homography_naive(match_p_src.T[random_four].T,match_p_dst.T[random_four].T)
-        fit_percent, dist_mse=test_homography(H, match_p_src, match_p_dst, max_err)
+        H = compute_homography_naive(match_p_src.T[random_four].T, match_p_dst.T[random_four].T)
+        fit_percent, dist_mse = test_homography(H, match_p_src, match_p_dst, max_err)
 
-        if final_fit_percent<fit_percent:
-            final_fit_percent=fit_percent
-            final_dist_mse=dist_mse
-            final_H=H
+        if final_fit_percent < fit_percent:
+            final_fit_percent = fit_percent
+            final_dist_mse = dist_mse
+            final_H = H
 
-        if fit_percent>inliers_percent:
+        if fit_percent > inliers_percent:
             break
 
     return final_H
-
-
 
 
 #########################################
 ####### Part C: Panorama creation #######
 #########################################
 
+def panorama(img_src, img_dst, match_p_src, match_p_dst, inliers_percent, max_err):
+    H_ransac = compute_homography(match_p_src, match_p_dst, inliers_percent, max_err)
 
+    h1, w1 = img_dst.shape[:2]
+    h2, w2 = img_src.shape[:2]
+    pts1 = np.float32([[0, 0], [0, h1], [w1, h1], [w1, 0]]).reshape(-1, 1, 2)
+    pts2 = np.float32([[0, 0], [0, h2], [w2, h2], [w2, 0]]).reshape(-1, 1, 2)
+    pts2_ = cv2.perspectiveTransform(pts2, H_ransac)
+    pts = np.concatenate((pts1, pts2_), axis=0)
 
+    # Finding the minimum and maximum coordinates
+    [xmin, ymin] = np.int32(pts.min(axis=0).ravel() - 0.5)
+    [xmax, ymax] = np.int32(pts.max(axis=0).ravel() + 0.5)
+    t = [-xmin, -ymin]
+
+    # Translating
+    Ht = np.array([[1, 0, t[0]], [0, 1, t[1]], [0, 0, 1]])
+
+    # Warping the first image on the second image using Homography Matrix
+    result = cv2.warpPerspective(img_src, Ht.dot(H_ransac), (xmax - xmin, ymax - ymin))
+    result[t[1]:h1 + t[1], t[0]:w1 + t[0]] = img_dst
+
+    return result
 
 
 if __name__ == '__main__':
